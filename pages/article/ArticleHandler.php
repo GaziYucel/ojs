@@ -28,7 +28,6 @@ use APP\security\authorization\OjsJournalMustPublishPolicy;
 use APP\submission\Submission;
 use APP\template\TemplateManager;
 use Firebase\JWT\Key;
-use PKP\citation\CitationDAO;
 use PKP\config\Config;
 use PKP\core\Core;
 use PKP\core\PKPApplication;
@@ -295,10 +294,9 @@ class ArticleHandler extends Handler
 
         // Citations
         if ($publication->getData('citationsRaw')) {
-            $citationDao = DAORegistry::getDAO('CitationDAO'); /** @var CitationDAO $citationDao */
-            $parsedCitations = $citationDao->getByPublicationId($publication->getId());
             $templateMgr->assign([
-                'parsedCitations' => $parsedCitations->toArray(),
+                'useStructuredCitations' => $publication->getData('useStructuredCitations'),
+                'citations' => Repo::citation()->getByPublicationId($publication->getId())
             ]);
         }
 
@@ -348,7 +346,8 @@ class ArticleHandler extends Handler
             $subscribedUser = $issueAction->subscribedUser($user, $context, isset($issue) ? $issue->getId() : null, isset($article) ? $article->getId() : null);
             $subscribedDomain = $issueAction->subscribedDomain($request, $context, isset($issue) ? $issue->getId() : null, isset($article) ? $article->getId() : null);
 
-            $completedPaymentDao = DAORegistry::getDAO('OJSCompletedPaymentDAO'); /** @var OJSCompletedPaymentDAO $completedPaymentDao */
+            $completedPaymentDao = DAORegistry::getDAO('OJSCompletedPaymentDAO');
+            /** @var OJSCompletedPaymentDAO $completedPaymentDao */
             $templateMgr->assign(
                 'hasAccess',
                 !$subscriptionRequired ||
@@ -408,7 +407,7 @@ class ArticleHandler extends Handler
     {
         $articleId = $args[0] ?? 0;
         $galleyId = $args[1] ?? 0;
-        $submissionFileId = isset($args[2]) ? (int) $args[2] : 0;
+        $submissionFileId = isset($args[2]) ? (int)$args[2] : 0;
         header('HTTP/1.1 301 Moved Permanently');
         $request->redirect(null, null, 'download', [$articleId, $galleyId, $submissionFileId]);
     }
@@ -571,7 +570,8 @@ class ArticleHandler extends Handler
 
                 $purchasedIssue = false;
                 if (!$subscribedUser && $paymentManager->purchaseIssueEnabled()) {
-                    $completedPaymentDao = DAORegistry::getDAO('OJSCompletedPaymentDAO'); /** @var OJSCompletedPaymentDAO $completedPaymentDao */
+                    $completedPaymentDao = DAORegistry::getDAO('OJSCompletedPaymentDAO');
+                    /** @var OJSCompletedPaymentDAO $completedPaymentDao */
                     $purchasedIssue = $completedPaymentDao->hasPaidPurchaseIssue($userId, $issue->getId());
                 }
 
@@ -593,7 +593,8 @@ class ArticleHandler extends Handler
 
                         /* if the article has been paid for then forget about everything else
                          * and just let them access the article */
-                        $completedPaymentDao = DAORegistry::getDAO('OJSCompletedPaymentDAO'); /** @var OJSCompletedPaymentDAO $completedPaymentDao */
+                        $completedPaymentDao = DAORegistry::getDAO('OJSCompletedPaymentDAO');
+                        /** @var OJSCompletedPaymentDAO $completedPaymentDao */
                         $dateEndMembership = $user->getData('dateEndMembership', 0);
                         if ($completedPaymentDao->hasPaidPurchaseArticle($userId, $submission->getId())
                             || (!is_null($dateEndMembership) && $dateEndMembership > time())) {
